@@ -10,6 +10,8 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Driver.js CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.css"/>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -46,29 +48,59 @@
             border-color: rgba(99, 102, 241, 0.4);
         }
 
-        /* Floating particles animation */
-        @keyframes float {
-            0% { transform: translateY(0px) rotate(0deg); opacity: 0; }
-            50% { opacity: 0.8; }
-            100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; }
+        /* Driver.js Custom Styling Overrides */
+        .driver-popover {
+            background-color: #0f172a !important;
+            color: #f8fafc !important;
+            border: 1px solid #334155 !important;
+            border-radius: 0.75rem !important;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+            font-family: 'Inter', sans-serif !important;
+            max-width: 360px !important;
         }
-        .particle {
-            position: fixed;
-            pointer-events: none;
-            z-index: 0;
-            animation: float 12s infinite linear;
+        .driver-popover-title {
+            color: #f1f5f9 !important;
+            font-weight: 700 !important;
+            font-size: 0.95rem !important;
+        }
+        .driver-popover-description {
+            color: #cbd5e1 !important;
+            font-size: 0.825rem !important;
+            line-height: 1.5 !important;
+        }
+        .driver-popover-footer button {
+            background-color: #312e81 !important;
+            color: #e0e7ff !important;
+            border: 1px solid #4338ca !important;
+            text-shadow: none !important;
+            font-size: 0.75rem !important;
+            border-radius: 0.375rem !important;
+            padding: 0.375rem 0.75rem !important;
+        }
+        .driver-popover-footer button:hover {
+            background-color: #3730a3 !important;
+            color: #ffffff !important;
+        }
+        .driver-popover-next-btn {
+            display: inline-block !important;
+        }
+        .driver-popover-navigation-btns {
+            gap: 0.375rem !important;
+        }
+        .driver-popover-close-btn {
+            color: #94a3b8 !important;
+        }
+        .driver-popover-close-btn:hover {
+            color: #ffffff !important;
         }
     </style>
 </head>
 <body class="theme-spring text-slate-100 min-h-screen flex flex-col relative overflow-x-hidden">
 
-    <!-- Season Floating Particles Background Container -->
-    <div id="particles-container" class="fixed inset-0 pointer-events-none z-0"></div>
-
     <!-- Header -->
     <header class="bg-slate-900/80 backdrop-blur border-b border-slate-700/80 sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-            <div class="flex items-center gap-3">
+            <div id="header-logo-group" class="flex items-center gap-3">
                 <div id="header-icon-bg" class="p-2 bg-indigo-600 rounded-lg text-white">
                     <i data-lucide="message-square-plus" class="w-6 h-6"></i>
                 </div>
@@ -80,13 +112,17 @@
                 </div>
             </div>
 
-            <!-- Reset Button -->
+            <!-- Action Buttons in Header -->
             <div class="flex items-center gap-2">
-                <button onclick="openImportModal()" class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-emerald-300 hover:text-white bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-600/40 rounded-lg transition">
-                    <i data-lucide="upload-cloud" class="w-4 h-4"></i>
-                    <span>JSON読込</span>
+                <button id="btn-start-tour" onclick="startTour()" class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-amber-300 hover:text-white bg-amber-950/60 hover:bg-amber-900/80 border border-amber-600/40 rounded-lg transition active:scale-95 shadow-sm">
+                    <i data-lucide="help-circle" class="w-4 h-4"></i>
+                    <span>使い方ガイド</span>
                 </button>
-                <button onclick="resetData()" class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700 border border-slate-700 rounded-lg transition">
+                <button id="btn-open-import" onclick="openImportModal()" class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-emerald-300 hover:text-white bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-600/40 rounded-lg transition">
+                    <i data-lucide="upload-cloud" class="w-4 h-4"></i>
+                    <span>データ読込</span>
+                </button>
+                <button id="btn-reset-all" onclick="resetData()" class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700 border border-slate-700 rounded-lg transition">
                     <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
                     <span class="hidden md:inline">リセット</span>
                 </button>
@@ -117,18 +153,20 @@
         </section>
 
         <!-- Preview Column (Right) -->
-        <section class="lg:col-span-5 flex flex-col gap-4 lg:sticky lg:top-20 h-fit">
+        <section id="preview-section" class="lg:col-span-5 flex flex-col gap-4 lg:sticky lg:top-20 h-fit">
             <div class="flex items-center justify-between">
-                <h2 class="text-base font-semibold text-slate-200 flex items-center gap-2">
-                    <i data-lucide="code-2" class="w-5 h-5 text-emerald-400"></i>
-                    生成された JSON
-                </h2>
-                <div class="flex items-center gap-2">
-                    <button onclick="copyJSON()" class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-medium rounded-lg transition active:scale-95">
+                <!-- Format Mode Selector Tabs -->
+                <div id="format-tab-group" class="flex items-center gap-1 bg-slate-900/90 border border-slate-700/80 p-1 rounded-xl">
+                    <button id="tab-json" onclick="setFormatMode('json')" class="px-3 py-1 rounded-lg text-xs font-semibold transition bg-indigo-600 text-white shadow">JSON</button>
+                    <button id="tab-xml" onclick="setFormatMode('xml')" class="px-3 py-1 rounded-lg text-xs font-semibold transition text-slate-400 hover:text-slate-200">XML</button>
+                </div>
+
+                <div id="json-actions" class="flex items-center gap-2">
+                    <button id="btn-copy-json" onclick="copyData()" class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-medium rounded-lg transition active:scale-95">
                         <i data-lucide="copy" class="w-3.5 h-3.5"></i>
                         <span id="copy-btn-text">コピー</span>
                     </button>
-                    <button onclick="downloadJSON()" class="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-medium rounded-lg transition active:scale-95">
+                    <button id="btn-download-json" onclick="downloadData()" class="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-medium rounded-lg transition active:scale-95">
                         <i data-lucide="download" class="w-3.5 h-3.5"></i>
                         <span>保存</span>
                     </button>
@@ -136,9 +174,9 @@
             </div>
 
             <!-- Output Box -->
-            <div class="relative bg-slate-950/90 border border-slate-800 rounded-xl overflow-hidden shadow-2xl backdrop-blur">
-                <div class="bg-slate-900/60 px-4 py-2 border-b border-slate-800/80 flex items-center justify-between">
-                    <span class="text-xs font-mono text-slate-400">comments.json</span>
+            <div id="json-box" class="relative bg-slate-950/90 border border-slate-800 rounded-xl overflow-hidden shadow-2xl backdrop-blur">
+                <div id="json-meta-bar" class="bg-slate-900/60 px-4 py-2 border-b border-slate-800/80 flex items-center justify-between">
+                    <span id="output-filename" class="text-xs font-mono text-slate-400">comments.json</span>
                     <span id="json-size" class="text-xs text-slate-500">0 bytes</span>
                 </div>
                 <pre id="json-preview" class="p-4 text-xs font-mono text-emerald-400 overflow-x-auto max-h-[calc(100vh-16rem)] min-h-[300px] leading-relaxed select-all"></pre>
@@ -152,101 +190,80 @@
         <span id="toast-message" class="text-sm font-medium"></span>
     </div>
 
-    <!-- Import JSON Modal -->
+    <!-- Import Modal (Supports JSON and XML) -->
     <div id="import-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-xl p-6 shadow-2xl space-y-4">
+        <div id="modal-content-box" class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-xl p-6 shadow-2xl space-y-4">
             <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-                <h3 class="font-bold text-white text-base flex items-center gap-2">
-                    <i data-lucide="file-json" class="w-5 h-5 text-emerald-400"></i>
-                    JSONデータからコメントを復元
+                <h3 id="modal-title" class="font-bold text-white text-base flex items-center gap-2">
+                    <i data-lucide="file-code" class="w-5 h-5 text-emerald-400"></i>
+                    JSON / XML データからコメントを復元
                 </h3>
-                <button onclick="closeImportModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                <button id="modal-close-btn" onclick="closeImportModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
 
             <div>
-                <label class="block text-xs font-semibold text-slate-300 mb-1">JSONテキストを貼り付けてください:</label>
-                <textarea id="import-json-input" rows="8" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs font-mono text-emerald-400 focus:outline-none focus:border-indigo-500 transition leading-relaxed" placeholder="[{ &quot;name&quot;: &quot;...&quot;, &quot;text&quot;: &quot;...&quot; }]"></textarea>
+                <label id="modal-label" class="block text-xs font-semibold text-slate-300 mb-1">JSONまたはXMLテキストを貼り付けてください:</label>
+                <textarea id="import-json-input" rows="8" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs font-mono text-emerald-400 focus:outline-none focus:border-indigo-500 transition leading-relaxed" placeholder="[{ &quot;name&quot;: &quot;...&quot; }] または <comments><comment>...</comment></comments>"></textarea>
             </div>
 
             <div class="flex justify-end gap-2 pt-2">
-                <button onclick="closeImportModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg transition">
+                <button id="modal-cancel-btn" onclick="closeImportModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg transition">
                     キャンセル
                 </button>
-                <button onclick="importJSONData()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium rounded-lg shadow-lg shadow-emerald-600/20 transition">
+                <button id="modal-submit-btn" onclick="importData()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium rounded-lg shadow-lg shadow-emerald-600/20 transition">
                     復元する
                 </button>
             </div>
         </div>
     </div>
 
+    <!-- Driver.js Library -->
+    <script src="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js"></script>
+
     <!-- Application Script -->
     <script>
-        // Default Avatar Colors
         const AVATAR_COLORS = [
             '#ef4444', '#f97316', '#f59e0b', '#10b981', 
             '#06b6d4', '#3b82f6', '#6366f1', '#a855f7', '#ec4899'
         ];
 
-        // Season Configurations for Individual Comments
         const SEASONS_CONFIG = {
-            spring: {
-                name: "春",
-                icon: "🌸",
-                cardClass: "comment-season-spring",
-                badgeClass: "bg-pink-500/20 text-pink-300 border-pink-500/40"
-            },
-            summer: {
-                name: "夏",
-                icon: "🌻",
-                cardClass: "comment-season-summer",
-                badgeClass: "bg-cyan-500/20 text-cyan-300 border-cyan-500/40"
-            },
-            autumn: {
-                name: "秋",
-                icon: "🍁",
-                cardClass: "comment-season-autumn",
-                badgeClass: "bg-amber-500/20 text-amber-300 border-amber-300/40"
-            },
-            winter: {
-                name: "冬",
-                icon: "❄️",
-                cardClass: "comment-season-winter",
-                badgeClass: "bg-indigo-500/20 text-indigo-300 border-indigo-500/40"
-            }
+            spring: { name: "春", icon: "🌸", cardClass: "comment-season-spring", badgeClass: "bg-pink-500/20 text-pink-300 border-pink-500/40" },
+            summer: { name: "夏", icon: "🌻", cardClass: "comment-season-summer", badgeClass: "bg-cyan-500/20 text-cyan-300 border-cyan-500/40" },
+            autumn: { name: "秋", icon: "🍁", cardClass: "comment-season-autumn", badgeClass: "bg-amber-500/20 text-amber-300 border-amber-300/40" },
+            winter: { name: "冬", icon: "❄️", cardClass: "comment-season-winter", badgeClass: "bg-indigo-500/20 text-indigo-300 border-indigo-500/40" }
         };
 
-        // Global State
-        let comments = [
-            {
-                id: generateId(),
-                name: "山田 太郎",
-                address: "東京都千代田区",
-                avatarBase64: "",
-                bgColor: "#6366f1",
-                date: "2026-04-15",
-                text: "春のコメントです🌸 日付によってカードのデザインが季節ごとに変化します！",
-                likes: 12,
-                dislikes: 0,
-                replies: [
-                    {
-                        id: generateId(),
-                        name: "佐藤 次郎",
-                        address: "",
-                        avatarBase64: "",
-                        bgColor: "#10b981",
-                        date: "2026-08-10",
-                        text: "こちらは夏のコメント🌻 住所を入力しないとJSON上は『不明』になります。",
-                        likes: 4,
-                        dislikes: 0,
-                        replies: []
-                    }
-                ]
-            }
-        ];
+        let comments = [];
+        let tourDriver = null;
+        let formatMode = 'json'; // 'json' or 'xml'
 
-        // Season Detection from Date (MM-DD)
+        function setFormatMode(mode) {
+            formatMode = mode;
+            const tabJson = document.getElementById('tab-json');
+            const tabXml = document.getElementById('tab-xml');
+            const filenameEl = document.getElementById('output-filename');
+
+            if (mode === 'json') {
+                tabJson.className = "px-3 py-1 rounded-lg text-xs font-semibold transition bg-indigo-600 text-white shadow";
+                tabXml.className = "px-3 py-1 rounded-lg text-xs font-semibold transition text-slate-400 hover:text-slate-200";
+                filenameEl.textContent = "comments.json";
+            } else {
+                tabXml.className = "px-3 py-1 rounded-lg text-xs font-semibold transition bg-indigo-600 text-white shadow";
+                tabJson.className = "px-3 py-1 rounded-lg text-xs font-semibold transition text-slate-400 hover:text-slate-200";
+                filenameEl.textContent = "comments.xml";
+            }
+            renderJSONOnly();
+
+            if (tourDriver && tourDriver.isActive()) {
+                const idx = tourDriver.getActiveIndex();
+                if (mode === 'xml' && idx === 21) advanceTourIfActive(21);
+                else if (mode === 'json' && idx === 23) advanceTourIfActive(23);
+            }
+        }
+
         function getSeasonFromDate(dateStr) {
             if (!dateStr) return 'spring';
             const parts = dateStr.split('-');
@@ -258,12 +275,10 @@
             return 'winter';
         }
 
-        // Utility: Unique ID
         function generateId() {
             return 'c_' + Math.random().toString(36).substr(2, 9);
         }
 
-        // Utility: Get Current Date (YYYY-MM-DD)
         function getFormattedDate() {
             const today = new Date();
             const yyyy = today.getFullYear();
@@ -272,51 +287,59 @@
             return `${yyyy}-${mm}-${dd}`;
         }
 
-        // Utility: Random Color
         function getRandomColor() {
             return AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
         }
 
-        // Add Root Comment
+        function advanceTourIfActive(targetStepIndex = null) {
+            if (tourDriver && tourDriver.isActive()) {
+                if (targetStepIndex === null || tourDriver.getActiveIndex() === targetStepIndex) {
+                    setTimeout(() => {
+                        tourDriver.moveNext();
+                    }, 250);
+                }
+            }
+        }
+
         function addRootComment() {
             const todayStr = getFormattedDate();
             comments.push({
                 id: generateId(),
-                name: "ユーザー名",
-                address: "",
+                name: "山田 太郎",
+                address: "東京都千代田区",
                 avatarBase64: "",
                 bgColor: getRandomColor(),
                 date: todayStr,
-                text: "コメントを入力してください。",
+                text: "新しい親コメントだベ！",
                 likes: 0,
                 dislikes: 0,
                 replies: []
             });
             render();
             showToast("新しいコメントを追加しました");
+            advanceTourIfActive(1); // 2番目のステップ（親コメント追加）から次へ
         }
 
-        // Add Reply Comment
         function addReply(parentId) {
             const target = findCommentById(comments, parentId);
             if (target) {
                 target.replies.push({
                     id: generateId(),
-                    name: "返信者",
-                    address: "",
+                    name: "佐藤 次郎",
+                    address: "大阪府大阪市",
                     avatarBase64: "",
                     bgColor: getRandomColor(),
                     date: getFormattedDate(),
-                    text: "返信内容を入力...",
+                    text: "返信内容を入力するベ！",
                     likes: 0,
                     dislikes: 0,
                     replies: []
                 });
                 render();
+                advanceTourIfActive(17); // 18番目（返信追加）から次へ
             }
         }
 
-        // Delete Comment
         function deleteComment(id) {
             function removeRecursive(list, targetId) {
                 return list.filter(item => {
@@ -330,9 +353,9 @@
             comments = removeRecursive(comments, id);
             render();
             showToast("コメントを削除しました");
+            advanceTourIfActive(20); // 21番目（コメント削除）から次へ
         }
 
-        // Helper: Find comment node recursively
         function findCommentById(list, id) {
             for (let item of list) {
                 if (item.id === id) return item;
@@ -344,7 +367,6 @@
             return null;
         }
 
-        // Update Field Value
         function updateField(id, field, value) {
             const target = findCommentById(comments, id);
             if (target) {
@@ -354,16 +376,25 @@
                     target[field] = value;
                 }
 
-                // Re-render full list if date is modified (to trigger season style change)
                 if (field === 'date') {
                     render();
                 } else {
                     renderJSONOnly();
                 }
+
+                if (tourDriver && tourDriver.isActive()) {
+                    const idx = tourDriver.getActiveIndex();
+                    if (field === 'name' && idx === 4) advanceTourIfActive(4);
+                    else if (field === 'address' && idx === 5) advanceTourIfActive(5);
+                    else if (field === 'date' && idx === 7) advanceTourIfActive(7);
+                    else if (field === 'bgColor' && idx === 12) advanceTourIfActive(12);
+                    else if (field === 'text' && idx === 13) advanceTourIfActive(13);
+                    else if (field === 'likes' && idx === 15) advanceTourIfActive(15);
+                    else if (field === 'dislikes' && idx === 16) advanceTourIfActive(16);
+                }
             }
         }
 
-        // Handle Avatar File Upload
         function handleAvatarUpload(id, fileInput) {
             const file = fileInput.files[0];
             if (!file) return;
@@ -375,39 +406,39 @@
                     target.avatarBase64 = e.target.result;
                     render();
                     showToast("アイコン画像を更新しました");
+                    advanceTourIfActive(2); // 3番目（アバター画像設定）から次へ
                 }
             };
             reader.readAsDataURL(file);
         }
 
-        // Clear Avatar Image
         function clearAvatar(id) {
             const target = findCommentById(comments, id);
             if (target) {
                 target.avatarBase64 = "";
                 render();
+                advanceTourIfActive(3); // 4番目（画像クリア）から次へ
             }
         }
 
-        // Reset Data
         function resetData() {
             comments = [];
+            closeImportModal();
             render();
             showToast("データをリセットしました");
+            advanceTourIfActive(32); // 33番目（リセット）から次へ
         }
 
-        // Open Import Modal
         function openImportModal() {
             document.getElementById('import-json-input').value = '';
             document.getElementById('import-modal').classList.remove('hidden');
+            advanceTourIfActive(28); // 29番目（データ読込画面起動）から次へ
         }
 
-        // Close Import Modal
         function closeImportModal() {
             document.getElementById('import-modal').classList.add('hidden');
         }
 
-        // Recursive format normalization for imported comments
         function normalizeImportedComments(list) {
             if (!Array.isArray(list)) return [];
             return list.map(item => ({
@@ -424,31 +455,103 @@
             }));
         }
 
-        // Import JSON text and restore UI
-        function importJSONData() {
+        // --- XML Converter Helpers ---
+        function jsonToXml(list, indent = 2) {
+            function buildXml(arr, level) {
+                const space = " ".repeat(level * indent);
+                let xml = "";
+                arr.forEach(item => {
+                    xml += `${space}<comment id="${escapeHtml(item.id)}">\n`;
+                    xml += `${space}  <name>${escapeHtml(item.name || '匿名')}</name>\n`;
+                    xml += `${space}  <address>${escapeHtml((item.address && item.address.trim() !== '') ? item.address : '不明')}</address>\n`;
+                    xml += `${space}  <avatarBase64>${escapeHtml(item.avatarBase64 || '')}</avatarBase64>\n`;
+                    xml += `${space}  <bgColor>${escapeHtml(item.bgColor || '#6366f1')}</bgColor>\n`;
+                    xml += `${space}  <date>${escapeHtml(item.date || '')}</date>\n`;
+                    xml += `${space}  <text>${escapeHtml(item.text || '')}</text>\n`;
+                    xml += `${space}  <likes>${item.likes || 0}</likes>\n`;
+                    xml += `${space}  <dislikes>${item.dislikes || 0}</dislikes>\n`;
+                    if (item.replies && item.replies.length > 0) {
+                        xml += `${space}  <replies>\n`;
+                        xml += buildXml(item.replies, level + 2);
+                        xml += `${space}  </replies>\n`;
+                    } else {
+                        xml += `${space}  <replies/>\n`;
+                    }
+                    xml += `${space}</comment>\n`;
+                });
+                return xml;
+            }
+            return `<?xml version="1.0" encoding="UTF-8"?>\n<comments>\n${buildXml(list, 1)}</comments>`;
+        }
+
+        function xmlToJson(xmlText) {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+            if (xmlDoc.getElementsByTagName("parsererror").length > 0) {
+                throw new Error("XML Parsing error");
+            }
+            function parseNodes(parent) {
+                const result = [];
+                const commentNodes = parent.children;
+                for (let i = 0; i < commentNodes.length; i++) {
+                    const node = commentNodes[i];
+                    if (node.tagName.toLowerCase() === 'comment') {
+                        const getVal = (tag) => {
+                            const el = node.getElementsByTagName(tag)[0];
+                            return el ? el.textContent : '';
+                        };
+                        const repliesNode = node.getElementsByTagName('replies')[0];
+                        const childReplies = repliesNode ? parseNodes(repliesNode) : [];
+                        result.push({
+                            id: node.getAttribute('id') || generateId(),
+                            name: getVal('name'),
+                            address: getVal('address'),
+                            avatarBase64: getVal('avatarBase64'),
+                            bgColor: getVal('bgColor'),
+                            date: getVal('date'),
+                            text: getVal('text'),
+                            likes: parseInt(getVal('likes'), 10) || 0,
+                            dislikes: parseInt(getVal('dislikes'), 10) || 0,
+                            replies: childReplies
+                        });
+                    }
+                }
+                return result;
+            }
+            const rootComments = xmlDoc.getElementsByTagName('comments')[0];
+            return rootComments ? parseNodes(rootComments) : [];
+        }
+
+        function importData() {
             const rawText = document.getElementById('import-json-input').value.trim();
             if (!rawText) {
-                showToast("JSONテキストを入力してください");
+                showToast("テキストを入力してください");
                 return;
             }
 
             try {
-                const parsed = JSON.parse(rawText);
+                let parsed = [];
+                if (rawText.startsWith('<') || rawText.includes('<?xml')) {
+                    parsed = xmlToJson(rawText);
+                } else {
+                    parsed = JSON.parse(rawText);
+                }
+
                 if (!Array.isArray(parsed)) {
-                    showToast("配列型 [...] のJSONを入力してください");
+                    showToast("有効なデータ構造ではありません");
                     return;
                 }
 
                 comments = normalizeImportedComments(parsed);
                 render();
                 closeImportModal();
-                showToast("コメントを正常に復元しました！");
+                showToast("データを正常に復元しました！");
+                advanceTourIfActive(30); // 31番目（データ一括復元）から次へ
             } catch (e) {
-                showToast("JSONの読み込みに失敗しました（構文エラー）");
+                showToast("データの読み込みに失敗しました（構文エラー）");
             }
         }
 
-        // Render UI
         function render() {
             const container = document.getElementById('comments-container');
             container.innerHTML = '';
@@ -458,12 +561,12 @@
                     <div class="text-center py-12 border-2 border-dashed border-slate-700/60 rounded-xl bg-slate-800/30 backdrop-blur">
                         <i data-lucide="message-square-off" class="w-10 h-10 text-slate-500 mx-auto mb-3"></i>
                         <p class="text-slate-400 font-medium">コメントがありません</p>
-                        <p class="text-slate-500 text-xs mt-1">「親コメントを追加」ボタンを押して作成を開始してください。</p>
+                        <p class="text-slate-500 text-xs mt-1">「親コメントを追加」ボタンを押してコメントを作成してください。</p>
                     </div>
                 `;
             } else {
-                comments.forEach(comment => {
-                    container.appendChild(createCommentCard(comment, 0));
+                comments.forEach((comment, index) => {
+                    container.appendChild(createCommentCard(comment, 0, index === 0));
                 });
             }
 
@@ -471,17 +574,19 @@
             renderJSONOnly();
         }
 
-        // Create HTML for a Single Comment Card (Recursive)
-        function createCommentCard(item, depth = 0) {
+        function createCommentCard(item, depth = 0, isFirstCard = false) {
             const card = document.createElement('div');
             
-            // Get Season configuration based on comment's date
             const seasonKey = getSeasonFromDate(item.date);
             const seasonConfig = SEASONS_CONFIG[seasonKey];
 
-            card.className = `${seasonConfig.cardClass} backdrop-blur border rounded-xl p-4 shadow-lg space-y-4 transition-all duration-300 ${depth > 0 ? 'ml-4 sm:ml-8 border-l-4' : ''}`;
+            card.className = `${seasonConfig.cardClass} backdrop-blur border rounded-xl p-4 shadow-lg space-y-4 transition-all duration-300 ${depth > 0 ? 'ml-4 sm:ml-8 border-l-4 border-indigo-500/50' : ''}`;
+            if (isFirstCard && depth === 0) {
+                card.id = 'first-comment-card';
+            } else if (depth > 0 && !document.getElementById('first-reply-card')) {
+                card.id = 'first-reply-card';
+            }
 
-            // Avatar setup
             const hasAvatar = !!item.avatarBase64;
             const avatarHtml = hasAvatar 
                 ? `<img src="${item.avatarBase64}" class="w-full h-full object-cover rounded-full">`
@@ -490,19 +595,18 @@
             card.innerHTML = `
                 <!-- Season Badge Header -->
                 <div class="flex items-center justify-between pb-1">
-                    <span class="text-[11px] px-2.5 py-0.5 rounded-full border font-medium flex items-center gap-1 ${seasonConfig.badgeClass}">
+                    <span class="season-badge text-[11px] px-2.5 py-0.5 rounded-full border font-medium flex items-center gap-1 ${seasonConfig.badgeClass}">
                         <span>${seasonConfig.icon}</span>
                         <span>${seasonConfig.name}のデザイン</span>
                     </span>
-                    <button onclick="deleteComment('${item.id}')" title="削除" class="text-slate-400 hover:text-red-400 p-1 rounded hover:bg-slate-800/50 transition">
+                    <button ${isFirstCard && depth === 0 ? 'id="btn-delete-card"' : ''} onclick="deleteComment('${item.id}')" title="削除" class="text-slate-400 hover:text-red-400 p-1 rounded hover:bg-slate-800/50 transition">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>
                 </div>
 
-                <!-- Top Row: Avatar & Basic Info Inputs -->
+                <!-- Top Row: Avatar & Inputs -->
                 <div class="flex items-start gap-3">
-                    <!-- Avatar Preview & Upload -->
-                    <div class="relative group shrink-0 w-11 h-11">
+                    <div ${isFirstCard && depth === 0 ? 'id="avatar-box"' : ''} class="relative group shrink-0 w-11 h-11">
                         <div class="w-11 h-11 rounded-full overflow-hidden border border-slate-600 shadow-inner">
                             ${avatarHtml}
                         </div>
@@ -511,32 +615,31 @@
                             <input type="file" accept="image/*" class="hidden" onchange="handleAvatarUpload('${item.id}', this)">
                         </label>
                         ${hasAvatar ? `
-                            <button onclick="clearAvatar('${item.id}')" title="画像を削除" class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600 shadow transition">
+                            <button ${isFirstCard && depth === 0 ? 'id="btn-clear-avatar"' : ''} onclick="clearAvatar('${item.id}')" title="画像を削除" class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600 shadow transition">
                                 <i data-lucide="x" class="w-3 h-3"></i>
                             </button>
                         ` : ''}
                     </div>
 
-                    <!-- Name, Address, Date, Base Color -->
                     <div class="flex-1 grid grid-cols-1 sm:grid-cols-12 gap-2">
                         <div class="sm:col-span-4">
                             <label class="block text-[10px] uppercase font-semibold text-slate-400 mb-1">名前</label>
-                            <input type="text" value="${escapeHtml(item.name)}" oninput="updateField('${item.id}', 'name', this.value)" 
+                            <input ${isFirstCard && depth === 0 ? 'id="input-name"' : ''} type="text" value="${escapeHtml(item.name)}" oninput="updateField('${item.id}', 'name', this.value)" 
                                 class="w-full bg-slate-950/80 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition" placeholder="名前">
                         </div>
                         <div class="sm:col-span-4">
                             <label class="block text-[10px] uppercase font-semibold text-slate-400 mb-1">住所（未入力は不明）</label>
-                            <input type="text" value="${escapeHtml(item.address || '')}" oninput="updateField('${item.id}', 'address', this.value)" 
+                            <input ${isFirstCard && depth === 0 ? 'id="input-address"' : ''} type="text" value="${escapeHtml(item.address || '')}" oninput="updateField('${item.id}', 'address', this.value)" 
                                 class="w-full bg-slate-950/80 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition" placeholder="東京都... (空で不明)">
                         </div>
                         <div class="sm:col-span-3">
                             <label class="block text-[10px] uppercase font-semibold text-slate-400 mb-1">日付 (季節決定)</label>
-                            <input type="date" value="${item.date}" onchange="updateField('${item.id}', 'date', this.value)" 
+                            <input ${isFirstCard && depth === 0 ? 'id="input-date"' : ''} type="date" value="${item.date}" onchange="updateField('${item.id}', 'date', this.value)" 
                                 class="w-full bg-slate-950/80 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-indigo-500 transition">
                         </div>
                         <div class="sm:col-span-1">
                             <label class="block text-[10px] uppercase font-semibold text-slate-400 mb-1">色</label>
-                            <input type="color" value="${item.bgColor}" onchange="updateField('${item.id}', 'bgColor', this.value); render();" 
+                            <input ${isFirstCard && depth === 0 ? 'id="input-color"' : ''} type="color" value="${item.bgColor}" onchange="updateField('${item.id}', 'bgColor', this.value); render();" 
                                 class="w-full h-[29px] bg-slate-950 border border-slate-700 rounded-lg cursor-pointer px-1 py-0.5">
                         </div>
                     </div>
@@ -544,29 +647,27 @@
 
                 <!-- Comment Text Area -->
                 <div>
-                    <textarea oninput="updateField('${item.id}', 'text', this.value)" 
+                    <textarea ${isFirstCard && depth === 0 ? 'id="input-text"' : ''} oninput="updateField('${item.id}', 'text', this.value)" 
                         rows="2" class="w-full bg-slate-950/80 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition resize-y" 
                         placeholder="コメント本文を入力してください...">${escapeHtml(item.text)}</textarea>
                 </div>
 
                 <!-- Footer Stats & Reply Action -->
                 <div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-800/80">
-                    <!-- High / Low Evaluations -->
                     <div class="flex items-center gap-4">
                         <div class="flex items-center gap-1.5 text-slate-400">
                             <i data-lucide="thumbs-up" class="w-3.5 h-3.5 text-indigo-400"></i>
-                            <input type="number" min="0" value="${item.likes}" oninput="updateField('${item.id}', 'likes', this.value)" 
+                            <input ${isFirstCard && depth === 0 ? 'id="input-likes"' : ''} type="number" min="0" value="${item.likes}" oninput="updateField('${item.id}', 'likes', this.value)" 
                                 class="w-14 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
                         </div>
                         <div class="flex items-center gap-1.5 text-slate-400">
                             <i data-lucide="thumbs-down" class="w-3.5 h-3.5 text-rose-400"></i>
-                            <input type="number" min="0" value="${item.dislikes}" oninput="updateField('${item.id}', 'dislikes', this.value)" 
+                            <input ${isFirstCard && depth === 0 ? 'id="input-dislikes"' : ''} type="number" min="0" value="${item.dislikes}" oninput="updateField('${item.id}', 'dislikes', this.value)" 
                                 class="w-14 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
                         </div>
                     </div>
 
-                    <!-- Add Reply Button -->
-                    <button onclick="addReply('${item.id}')" class="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 rounded-lg transition">
+                    <button ${isFirstCard && depth === 0 ? 'id="btn-add-reply"' : ''} onclick="addReply('${item.id}')" class="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 rounded-lg transition">
                         <i data-lucide="reply" class="w-3.5 h-3.5"></i>
                         <span>返信を追加</span>
                     </button>
@@ -576,18 +677,16 @@
                 <div class="replies-container space-y-3 pt-2"></div>
             `;
 
-            // Append child replies
             const repliesSlot = card.querySelector('.replies-container');
             if (item.replies && item.replies.length > 0) {
-                item.replies.forEach(reply => {
-                    repliesSlot.appendChild(createCommentCard(reply, depth + 1));
+                item.replies.forEach((reply) => {
+                    repliesSlot.appendChild(createCommentCard(reply, depth + 1, false));
                 });
             }
 
             return card;
         }
 
-        // Helper: Format objects for JSON export to fallback address to "不明" if empty
         function processCommentsForExport(list) {
             return list.map(item => ({
                 id: item.id,
@@ -603,57 +702,63 @@
             }));
         }
 
-        // Render JSON text block & calculated bytes
-        function renderJSONOnly() {
+        function getOutputText() {
             const processedData = processCommentsForExport(comments);
-            const jsonText = JSON.stringify(processedData, null, 2);
-            document.getElementById('json-preview').textContent = jsonText;
-            
-            // Calculate size
-            const bytes = new Blob([jsonText]).size;
-            document.getElementById('json-size').textContent = `${bytes.toLocaleString()} bytes`;
+            if (formatMode === 'xml') {
+                return jsonToXml(processedData);
+            }
+            return JSON.stringify(processedData, null, 2);
         }
 
-        // Copy JSON to Clipboard
-        function copyJSON() {
-            const processedData = processCommentsForExport(comments);
-            const jsonText = JSON.stringify(processedData, null, 2);
+        function renderJSONOnly() {
+            const outputText = getOutputText();
+            const previewEl = document.getElementById('json-preview');
+            if (previewEl) previewEl.textContent = outputText;
             
-            // Fallback strategy for iframe environments
+            const bytes = new Blob([outputText]).size;
+            const sizeEl = document.getElementById('json-size');
+            if (sizeEl) sizeEl.textContent = `${bytes.toLocaleString()} bytes`;
+        }
+
+        function copyData() {
+            const outputText = getOutputText();
             const textArea = document.createElement("textarea");
-            textArea.value = jsonText;
+            textArea.value = outputText;
             document.body.appendChild(textArea);
             textArea.select();
             
             try {
                 document.execCommand('copy');
                 const btnText = document.getElementById('copy-btn-text');
-                btnText.textContent = "コピー完了!";
-                setTimeout(() => { btnText.textContent = "コピー"; }, 2000);
-                showToast("JSONをクリップボードにコピーしました");
+                if (btnText) {
+                    btnText.textContent = "コピー完了!";
+                    setTimeout(() => { btnText.textContent = "コピー"; }, 2000);
+                }
+                showToast(`${formatMode.toUpperCase()}をクリップボードにコピーしました`);
             } catch (err) {
                 showToast("コピーに失敗しました");
             }
             document.body.removeChild(textArea);
+            advanceTourIfActive(25); // 26番目（コードコピー機能）から次へ
         }
 
-        // Download JSON File
-        function downloadJSON() {
-            const processedData = processCommentsForExport(comments);
-            const jsonText = JSON.stringify(processedData, null, 2);
-            const blob = new Blob([jsonText], { type: 'application/json' });
+        function downloadData() {
+            const outputText = getOutputText();
+            const mimeType = formatMode === 'xml' ? 'application/xml' : 'application/json';
+            const ext = formatMode === 'xml' ? 'xml' : 'json';
+            const blob = new Blob([outputText], { type: mimeType });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `comments_${new Date().toISOString().slice(0,10)}.json`;
+            a.download = `comments_${new Date().toISOString().slice(0,10)}.${ext}`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            showToast("JSONファイルを保存しました");
+            showToast(`${formatMode.toUpperCase()}ファイルを保存しました`);
+            advanceTourIfActive(26); // 27番目（ファイル保存）から次へ
         }
 
-        // Show Toast Message
         function showToast(message) {
             const toast = document.getElementById('toast');
             document.getElementById('toast-message').textContent = message;
@@ -664,7 +769,6 @@
             }, 3000);
         }
 
-        // HTML Escape Helper
         function escapeHtml(str) {
             if (!str) return '';
             return str
@@ -675,7 +779,202 @@
                 .replace(/'/g, "&#039;");
         }
 
-        // Initial Load
+        // --- 35-STEP COMPLETE FUNCTIONAL TOUR ---
+        function startTour() {
+            const driver = window.driver.js.driver;
+            tourDriver = driver({
+                showProgress: true,
+                allowClose: true,
+                overlayClickNext: false,
+                doneBtnText: "ツアー完了！ 🎉",
+                nextBtnText: "次へ ➔",
+                prevBtnText: "⬅ 戻る",
+                onCloseClick: () => {
+                    closeImportModal();
+                    tourDriver.destroy();
+                },
+                steps: [
+                    // 1
+                    {
+                        element: '#header-logo-group',
+                        popover: { title: "1/35: ツール概要", description: "【機能①：JSON/XML双方向対応】コメントデータを季節デザイン付きで構築・エクスポートできるマルチツールだベ！" }
+                    },
+                    // 2
+                    {
+                        element: '#add-comment-btn',
+                        popover: { title: "2/35: 親コメント追加", description: "【機能②：ルートコメント作成】ボタンを押して新しい親コメントカードを作成してね！" }
+                    },
+                    // 3
+                    {
+                        element: '#avatar-box',
+                        popover: { title: "3/35: アバター画像設定", description: "【機能③：Base64画像エンコード】カメラマークを押して画像ファイルをアップロードしてみよう！" }
+                    },
+                    // 4
+                    {
+                        element: '#btn-clear-avatar',
+                        popover: { title: "4/35: 画像クリア", description: "【機能④：デフォルト復元】『×』ボタンを押すとアバター画像が削除されイニシャル表示に戻るベ！" }
+                    },
+                    // 5
+                    {
+                        element: '#input-name',
+                        popover: { title: "5/35: 名前編集", description: "【機能⑤：名前リアルタイム編集】名前を入力すると即座にデータとアイコンに反映されるぞ！" }
+                    },
+                    // 6
+                    {
+                        element: '#input-address',
+                        popover: { title: "6/35: 住所入力", description: "【機能⑥：住所属性編集】都道府県や市区町村を入力してね！" }
+                    },
+                    // 7
+                    {
+                        element: '#input-address',
+                        popover: { title: "7/35: 空欄時の『不明』補完", description: "【機能⑦：デフォルト値補完】住所を空欄にすると、出力データ上で自動的に『不明』と設定されるベ！" }
+                    },
+                    // 8
+                    {
+                        element: '#input-date',
+                        popover: { title: "8/35: 日付設定", description: "【機能⑧：日付指定】日付を選ぶと、月判定によってカードのテーマカラーが変わるぞ！" }
+                    },
+                    // 9
+                    {
+                        element: '#first-comment-card .season-badge',
+                        popover: { title: "9/35: 春テーマ（3〜5月）", description: "【機能⑨：春テーマ】3月〜5月はサクラ色のグラデーションデザインになるベ！" }
+                    },
+                    // 10
+                    {
+                        element: '#first-comment-card .season-badge',
+                        popover: { title: "10/35: 夏テーマ（6〜8月）", description: "【機能⑩：夏テーマ】6月〜8月は清涼感のあるシアンブルーカラーになるぞ！" }
+                    },
+                    // 11
+                    {
+                        element: '#first-comment-card .season-badge',
+                        popover: { title: "11/35: 秋テーマ（9〜11月）", description: "【機能⑪：秋テーマ】9月〜11月は紅葉をイメージしたアンバーカラーだベ！" }
+                    },
+                    // 12
+                    {
+                        element: '#first-comment-card .season-badge',
+                        popover: { title: "12/35: 冬テーマ（12〜2月）", description: "【機能⑫：冬テーマ】12月〜2月は澄んだインディゴテーマに切替わるベ！" }
+                    },
+                    // 13
+                    {
+                        element: '#input-color',
+                        popover: { title: "13/35: アイコン背景色設定", description: "【機能⑬：カラーパレット変更】カラーピッカーで好きな色を選んでアイコン背景を変えよう！" }
+                    },
+                    // 14
+                    {
+                        element: '#input-text',
+                        popover: { title: "14/35: 本文リアルタイム入力", description: "【機能⑭：テキストライブ反映】コメント本文を自由に入力してね！" }
+                    },
+                    // 15
+                    {
+                        element: '#input-text',
+                        popover: { title: "15/35: XSSサニタイズ機能", description: "【機能⑮：自動HTMLエスケープ】特殊文字やHTMLタグも安全に処理されるベさ！" }
+                    },
+                    // 16
+                    {
+                        element: '#input-likes',
+                        popover: { title: "16/35: 高評価カウンター", description: "【機能⑯：Like数設定】高評価の数値を変更してね！" }
+                    },
+                    // 17
+                    {
+                        element: '#input-dislikes',
+                        popover: { title: "17/35: 低評価カウンター", description: "【機能⑰：Dislike数設定】低評価の数値を変更できるベ！" }
+                    },
+                    // 18
+                    {
+                        element: '#btn-add-reply',
+                        popover: { title: "18/35: 返信追加", description: "【機能⑱：子コメント作成】『返信を追加』ボタンを押して返信カードを追加してね！" }
+                    },
+                    // 19
+                    {
+                        element: '#first-reply-card',
+                        popover: { title: "19/35: ツリー表示インデント", description: "【機能⑲：視覚的ツリー構造】返信コメントは左側に境界線がついてネスト表示されるぞ！" }
+                    },
+                    // 20
+                    {
+                        element: '#first-reply-card',
+                        popover: { title: "20/35: 無限ネスト対応", description: "【機能⑲：再帰的データ構造】返信にさらに返信を重ねて何階層でもネスト作成可能だベ！" }
+                    },
+                    // 21
+                    {
+                        element: '#btn-delete-card',
+                        popover: { title: "21/35: コメント削除", description: "【機能21：再帰削除】ゴミ箱ボタンを押すと該当コメントと配下の返信が一気に削除されるベ！" }
+                    },
+                    // 22
+                    {
+                        element: '#tab-xml',
+                        popover: { title: "22/35: XMLモード切り替え", description: "【機能22：XML形式変換】『XML』タブを押して出力フォーマットをXMLに変更してみよう！" }
+                    },
+                    // 23
+                    {
+                        element: '#json-preview',
+                        popover: { title: "23/35: XML構造化プレビュー", description: "【機能23：XMLツリー生成】階層構造がそのまま `<comments><comment>` タグに自動変換されるぞ！" }
+                    },
+                    // 24
+                    {
+                        element: '#tab-json',
+                        popover: { title: "24/35: JSONモード復帰", description: "【機能24：JSON形式変換】『JSON』タブを押して元のJSONプレビューに戻してみよう！" }
+                    },
+                    // 25
+                    {
+                        element: '#json-box',
+                        popover: { title: "25/35: ライブコンパイル表示", description: "【機能25：即時レンダリング】カード編集が即座にコード表示エリアへ同期反映されるベ！" }
+                    },
+                    // 26
+                    {
+                        element: '#btn-copy-json',
+                        popover: { title: "26/35: コードコピー機能", description: "【機能26：クリップボード出力】『コピー』ボタンで選択中フォーマットのコードを取得してね！" }
+                    },
+                    // 27
+                    {
+                        element: '#btn-download-json',
+                        popover: { title: "27/35: ファイル保存", description: "【機能27：ローカル保存】『保存』ボタンを押すと.jsonまたは.xml形式で保存されるベ！" }
+                    },
+                    // 28
+                    {
+                        element: '#json-meta-bar',
+                        popover: { title: "28/35: バイト数表示", description: "【機能28：データ量計測】出力データの正確なバイトサイズが常に計算されるぞ！" }
+                    },
+                    // 29
+                    {
+                        element: '#btn-open-import',
+                        popover: { title: "29/35: データ読込画面起動", description: "【機能29：インポート機能】『データ読込』ボタンを押して復元モーダルを開こう！" }
+                    },
+                    // 30
+                    {
+                        element: '#import-json-input',
+                        popover: { title: "30/35: XML / JSON自動識別", description: "【機能30：マルチフォーマット読込】JSON配列もXMLタグも自動判定して読み込める優れものだベ！" }
+                    },
+                    // 31
+                    {
+                        element: '#modal-submit-btn',
+                        popover: { title: "31/35: データ一括復元", description: "【機能31：DOM再構築】『復元する』を押すと画面上にカード一覧が一瞬で復元されるぞ！" }
+                    },
+                    // 32
+                    {
+                        element: '#toast',
+                        popover: { title: "32/35: トーストフィードバック", description: "【機能32：UI通知メッセージ】コピーや保存、エラーの状況が画面右下にポップイン表示されるベ！" }
+                    },
+                    // 33
+                    {
+                        element: '#btn-reset-all',
+                        popover: { title: "33/35: リセット機能", description: "【機能33：データ全初期化】『リセット』を押すと全コメントが消去されまっさらになるぞ！" }
+                    },
+                    // 34
+                    {
+                        element: '#header-icon-bg',
+                        popover: { title: "34/35: レスポンシブ＆ダークモードUI", description: "【機能34：適応型デザイン】スマホ・PC対応＆見やすい洗練されたダークUIで快適だベ！" }
+                    },
+                    // 35
+                    {
+                        element: '#btn-start-tour',
+                        popover: { title: "35/35: ガイド完走！", description: "【機能35：ツアー再開対応】お疲れ様だベさ！いつでもこのボタンを押せば35ステップツアーを遊べるぞ💕" }
+                    }
+                ]
+            });
+
+            tourDriver.drive();
+        }
+
         window.onload = function() {
             render();
         };
