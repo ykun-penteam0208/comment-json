@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>コメントJSONジェネレーター</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+        /* Custom scrollbar for JSON preview */
+        pre::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        pre::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        pre::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+
+        /* Comment Season Theme Styles */
+        .comment-season-spring {
+            background: linear-gradient(135deg, rgba(244, 114, 182, 0.12), rgba(30, 27, 46, 0.85));
+            border-color: rgba(244, 114, 182, 0.4);
+        }
+        .comment-season-summer {
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.12), rgba(15, 23, 42, 0.85));
+            border-color: rgba(6, 182, 212, 0.4);
+        }
+        .comment-season-autumn {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(35, 20, 15, 0.85));
+            border-color: rgba(245, 158, 11, 0.4);
+        }
+        .comment-season-winter {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(15, 23, 42, 0.85));
+            border-color: rgba(99, 102, 241, 0.4);
+        }
+
+        /* Floating particles animation */
+        @keyframes float {
+            0% { transform: translateY(0px) rotate(0deg); opacity: 0; }
+            50% { opacity: 0.8; }
+            100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; }
+        }
+        .particle {
+            position: fixed;
+            pointer-events: none;
+            z-index: 0;
+            animation: float 12s infinite linear;
+        }
+    </style>
+</head>
+<body class="theme-spring text-slate-100 min-h-screen flex flex-col relative overflow-x-hidden">
+
+    <!-- Season Floating Particles Background Container -->
+    <div id="particles-container" class="fixed inset-0 pointer-events-none z-0"></div>
+
+    <!-- Header -->
+    <header class="bg-slate-900/80 backdrop-blur border-b border-slate-700/80 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div id="header-icon-bg" class="p-2 bg-indigo-600 rounded-lg text-white">
+                    <i data-lucide="message-square-plus" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg text-white leading-tight flex items-center gap-2">
+                        Comment JSON Builder
+                    </h1>
+                    <p class="text-xs text-slate-400">日付ごとの季節テーマ ＆ 住所対応コメントジェネレーター</p>
+                </div>
+            </div>
+
+            <!-- Reset Button -->
+            <div class="flex items-center gap-2">
+                <button onclick="openImportModal()" class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-emerald-300 hover:text-white bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-600/40 rounded-lg transition">
+                    <i data-lucide="upload-cloud" class="w-4 h-4"></i>
+                    <span>JSON読込</span>
+                </button>
+                <button onclick="resetData()" class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700 border border-slate-700 rounded-lg transition">
+                    <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                    <span class="hidden md:inline">リセット</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-12 gap-6 z-10 relative">
+
+        <!-- Editor Column (Left) -->
+        <section class="lg:col-span-7 flex flex-col gap-4">
+            <div class="flex items-center justify-between">
+                <h2 class="text-base font-semibold text-slate-200 flex items-center gap-2">
+                    <i data-lucide="edit-3" class="w-5 h-5 text-indigo-400"></i>
+                    コメント一覧の編集
+                </h2>
+                <button id="add-comment-btn" onclick="addRootComment()" class="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm rounded-lg shadow-lg shadow-indigo-600/20 transition duration-150">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    親コメントを追加
+                </button>
+            </div>
+
+            <!-- Comments Container -->
+            <div id="comments-container" class="space-y-4">
+                <!-- Dynamic comment cards will be rendered here -->
+            </div>
+        </section>
+
+        <!-- Preview Column (Right) -->
+        <section class="lg:col-span-5 flex flex-col gap-4 lg:sticky lg:top-20 h-fit">
+            <div class="flex items-center justify-between">
+                <h2 class="text-base font-semibold text-slate-200 flex items-center gap-2">
+                    <i data-lucide="code-2" class="w-5 h-5 text-emerald-400"></i>
+                    生成された JSON
+                </h2>
+                <div class="flex items-center gap-2">
+                    <button onclick="copyJSON()" class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-medium rounded-lg transition active:scale-95">
+                        <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                        <span id="copy-btn-text">コピー</span>
+                    </button>
+                    <button onclick="downloadJSON()" class="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-medium rounded-lg transition active:scale-95">
+                        <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                        <span>保存</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Output Box -->
+            <div class="relative bg-slate-950/90 border border-slate-800 rounded-xl overflow-hidden shadow-2xl backdrop-blur">
+                <div class="bg-slate-900/60 px-4 py-2 border-b border-slate-800/80 flex items-center justify-between">
+                    <span class="text-xs font-mono text-slate-400">comments.json</span>
+                    <span id="json-size" class="text-xs text-slate-500">0 bytes</span>
+                </div>
+                <pre id="json-preview" class="p-4 text-xs font-mono text-emerald-400 overflow-x-auto max-h-[calc(100vh-16rem)] min-h-[300px] leading-relaxed select-all"></pre>
+            </div>
+        </section>
+    </main>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-6 right-6 translate-y-20 opacity-0 transition-all duration-300 bg-slate-800 border border-slate-700 text-white px-4 py-3 rounded-lg shadow-2xl flex items-center gap-3 z-50">
+        <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-400"></i>
+        <span id="toast-message" class="text-sm font-medium"></span>
+    </div>
+
+    <!-- Import JSON Modal -->
+    <div id="import-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-xl p-6 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="font-bold text-white text-base flex items-center gap-2">
+                    <i data-lucide="file-json" class="w-5 h-5 text-emerald-400"></i>
+                    JSONデータからコメントを復元
+                </h3>
+                <button onclick="closeImportModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">JSONテキストを貼り付けてください:</label>
+                <textarea id="import-json-input" rows="8" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs font-mono text-emerald-400 focus:outline-none focus:border-indigo-500 transition leading-relaxed" placeholder="[{ &quot;name&quot;: &quot;...&quot;, &quot;text&quot;: &quot;...&quot; }]"></textarea>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="closeImportModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg transition">
+                    キャンセル
+                </button>
+                <button onclick="importJSONData()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium rounded-lg shadow-lg shadow-emerald-600/20 transition">
+                    復元する
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Script -->
+    <script>
+        // Default Avatar Colors
+        const AVATAR_COLORS = [
+            '#ef4444', '#f97316', '#f59e0b', '#10b981', 
+            '#06b6d4', '#3b82f6', '#6366f1', '#a855f7', '#ec4899'
+        ];
+
+        // Season Configurations for Individual Comments
+        const SEASONS_CONFIG = {
+            spring: {
+                name: "春",
+                icon: "🌸",
+                cardClass: "comment-season-spring",
+                badgeClass: "bg-pink-500/20 text-pink-300 border-pink-500/40"
+            },
+            summer: {
+                name: "夏",
+                icon: "🌻",
+                cardClass: "comment-season-summer",
+                badgeClass: "bg-cyan-500/20 text-cyan-300 border-cyan-500/40"
+            },
+            autumn: {
+                name: "秋",
+                icon: "🍁",
+                cardClass: "comment-season-autumn",
+                badgeClass: "bg-amber-500/20 text-amber-300 border-amber-300/40"
+            },
+            winter: {
+                name: "冬",
+                icon: "❄️",
+                cardClass: "comment-season-winter",
+                badgeClass: "bg-indigo-500/20 text-indigo-300 border-indigo-500/40"
+            }
+        };
+
+        // Global State
+        let comments = [
+            {
+                id: generateId(),
+                name: "山田 太郎",
+                address: "東京都千代田区",
+                avatarBase64: "",
+                bgColor: "#6366f1",
+                date: "2026-04-15",
+                text: "春のコメントです🌸 日付によってカードのデザインが季節ごとに変化します！",
+                likes: 12,
+                dislikes: 0,
+                replies: [
+                    {
+                        id: generateId(),
+                        name: "佐藤 次郎",
+                        address: "",
+                        avatarBase64: "",
+                        bgColor: "#10b981",
+                        date: "2026-08-10",
+                        text: "こちらは夏のコメント🌻 住所を入力しないとJSON上は『不明』になります。",
+                        likes: 4,
+                        dislikes: 0,
+                        replies: []
+                    }
+                ]
+            }
+        ];
+
+        // Season Detection from Date (MM-DD)
+        function getSeasonFromDate(dateStr) {
+            if (!dateStr) return 'spring';
+            const parts = dateStr.split('-');
+            if (parts.length < 2) return 'spring';
+            const month = parseInt(parts[1], 10);
+            if (month >= 3 && month <= 5) return 'spring';
+            if (month >= 6 && month <= 8) return 'summer';
+            if (month >= 9 && month <= 11) return 'autumn';
+            return 'winter';
+        }
+
+        // Utility: Unique ID
+        function generateId() {
+            return 'c_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        // Utility: Get Current Date (YYYY-MM-DD)
+        function getFormattedDate() {
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
+        // Utility: Random Color
+        function getRandomColor() {
+            return AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
+        }
+
+        // Add Root Comment
+        function addRootComment() {
+            const todayStr = getFormattedDate();
+            comments.push({
+                id: generateId(),
+                name: "ユーザー名",
+                address: "",
+                avatarBase64: "",
+                bgColor: getRandomColor(),
+                date: todayStr,
+                text: "コメントを入力してください。",
+                likes: 0,
+                dislikes: 0,
+                replies: []
+            });
+            render();
+            showToast("新しいコメントを追加しました");
+        }
+
+        // Add Reply Comment
+        function addReply(parentId) {
+            const target = findCommentById(comments, parentId);
+            if (target) {
+                target.replies.push({
+                    id: generateId(),
+                    name: "返信者",
+                    address: "",
+                    avatarBase64: "",
+                    bgColor: getRandomColor(),
+                    date: getFormattedDate(),
+                    text: "返信内容を入力...",
+                    likes: 0,
+                    dislikes: 0,
+                    replies: []
+                });
+                render();
+            }
+        }
+
+        // Delete Comment
+        function deleteComment(id) {
+            function removeRecursive(list, targetId) {
+                return list.filter(item => {
+                    if (item.id === targetId) return false;
+                    if (item.replies && item.replies.length > 0) {
+                        item.replies = removeRecursive(item.replies, targetId);
+                    }
+                    return true;
+                });
+            }
+            comments = removeRecursive(comments, id);
+            render();
+            showToast("コメントを削除しました");
+        }
+
+        // Helper: Find comment node recursively
+        function findCommentById(list, id) {
+            for (let item of list) {
+                if (item.id === id) return item;
+                if (item.replies && item.replies.length > 0) {
+                    const found = findCommentById(item.replies, id);
+                    if (found) return found;
+                }
+            }
+            return null;
+        }
+
+        // Update Field Value
+        function updateField(id, field, value) {
+            const target = findCommentById(comments, id);
+            if (target) {
+                if (field === 'likes' || field === 'dislikes') {
+                    target[field] = parseInt(value, 10) || 0;
+                } else {
+                    target[field] = value;
+                }
+
+                // Re-render full list if date is modified (to trigger season style change)
+                if (field === 'date') {
+                    render();
+                } else {
+                    renderJSONOnly();
+                }
+            }
+        }
+
+        // Handle Avatar File Upload
+        function handleAvatarUpload(id, fileInput) {
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const target = findCommentById(comments, id);
+                if (target) {
+                    target.avatarBase64 = e.target.result;
+                    render();
+                    showToast("アイコン画像を更新しました");
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Clear Avatar Image
+        function clearAvatar(id) {
+            const target = findCommentById(comments, id);
+            if (target) {
+                target.avatarBase64 = "";
+                render();
+            }
+        }
+
+        // Reset Data
+        function resetData() {
+            comments = [];
+            render();
+            showToast("データをリセットしました");
+        }
+
+        // Open Import Modal
+        function openImportModal() {
+            document.getElementById('import-json-input').value = '';
+            document.getElementById('import-modal').classList.remove('hidden');
+        }
+
+        // Close Import Modal
+        function closeImportModal() {
+            document.getElementById('import-modal').classList.add('hidden');
+        }
+
+        // Recursive format normalization for imported comments
+        function normalizeImportedComments(list) {
+            if (!Array.isArray(list)) return [];
+            return list.map(item => ({
+                id: item.id || generateId(),
+                name: item.name || "名前なし",
+                address: (item.address && item.address !== "不明") ? item.address : "",
+                avatarBase64: item.avatarBase64 || "",
+                bgColor: item.bgColor || getRandomColor(),
+                date: item.date || getFormattedDate(),
+                text: item.text || "",
+                likes: parseInt(item.likes, 10) || 0,
+                dislikes: parseInt(item.dislikes, 10) || 0,
+                replies: normalizeImportedComments(item.replies || [])
+            }));
+        }
+
+        // Import JSON text and restore UI
+        function importJSONData() {
+            const rawText = document.getElementById('import-json-input').value.trim();
+            if (!rawText) {
+                showToast("JSONテキストを入力してください");
+                return;
+            }
+
+            try {
+                const parsed = JSON.parse(rawText);
+                if (!Array.isArray(parsed)) {
+                    showToast("配列型 [...] のJSONを入力してください");
+                    return;
+                }
+
+                comments = normalizeImportedComments(parsed);
+                render();
+                closeImportModal();
+                showToast("コメントを正常に復元しました！");
+            } catch (e) {
+                showToast("JSONの読み込みに失敗しました（構文エラー）");
+            }
+        }
+
+        // Render UI
+        function render() {
+            const container = document.getElementById('comments-container');
+            container.innerHTML = '';
+
+            if (comments.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 border-2 border-dashed border-slate-700/60 rounded-xl bg-slate-800/30 backdrop-blur">
+                        <i data-lucide="message-square-off" class="w-10 h-10 text-slate-500 mx-auto mb-3"></i>
+                        <p class="text-slate-400 font-medium">コメントがありません</p>
+                        <p class="text-slate-500 text-xs mt-1">「親コメントを追加」ボタンを押して作成を開始してください。</p>
+                    </div>
+                `;
+            } else {
+                comments.forEach(comment => {
+                    container.appendChild(createCommentCard(comment, 0));
+                });
+            }
+
+            lucide.createIcons();
+            renderJSONOnly();
+        }
+
+        // Create HTML for a Single Comment Card (Recursive)
+        function createCommentCard(item, depth = 0) {
+            const card = document.createElement('div');
+            
+            // Get Season configuration based on comment's date
+            const seasonKey = getSeasonFromDate(item.date);
+            const seasonConfig = SEASONS_CONFIG[seasonKey];
+
+            card.className = `${seasonConfig.cardClass} backdrop-blur border rounded-xl p-4 shadow-lg space-y-4 transition-all duration-300 ${depth > 0 ? 'ml-4 sm:ml-8 border-l-4' : ''}`;
+
+            // Avatar setup
+            const hasAvatar = !!item.avatarBase64;
+            const avatarHtml = hasAvatar 
+                ? `<img src="${item.avatarBase64}" class="w-full h-full object-cover rounded-full">`
+                : `<div class="w-full h-full rounded-full flex items-center justify-center font-bold text-white text-sm" style="background-color: ${item.bgColor}">${(item.name || 'U').charAt(0).toUpperCase()}</div>`;
+
+            card.innerHTML = `
+                <!-- Season Badge Header -->
+                <div class="flex items-center justify-between pb-1">
+                    <span class="text-[11px] px-2.5 py-0.5 rounded-full border font-medium flex items-center gap-1 ${seasonConfig.badgeClass}">
+                        <span>${seasonConfig.icon}</span>
+                        <span>${seasonConfig.name}のデザイン</span>
+                    </span>
+                    <button onclick="deleteComment('${item.id}')" title="削除" class="text-slate-400 hover:text-red-400 p-1 rounded hover:bg-slate-800/50 transition">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </div>
+
+                <!-- Top Row: Avatar & Basic Info Inputs -->
+                <div class="flex items-start gap-3">
+                    <!-- Avatar Preview & Upload -->
+                    <div class="relative group shrink-0 w-11 h-11">
+                        <div class="w-11 h-11 rounded-full overflow-hidden border border-slate-600 shadow-inner">
+                            ${avatarHtml}
+                        </div>
+                        <label title="画像をアップロード" class="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition">
+                            <i data-lucide="camera" class="w-4 h-4 text-white"></i>
+                            <input type="file" accept="image/*" class="hidden" onchange="handleAvatarUpload('${item.id}', this)">
+                        </label>
+                        ${hasAvatar ? `
+                            <button onclick="clearAvatar('${item.id}')" title="画像を削除" class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600 shadow transition">
+                                <i data-lucide="x" class="w-3 h-3"></i>
+                            </button>
+                        ` : ''}
+                    </div>
+
+                    <!-- Name, Address, Date, Base Color -->
+                    <div class="flex-1 grid grid-cols-1 sm:grid-cols-12 gap-2">
+                        <div class="sm:col-span-4">
+                            <label class="block text-[10px] uppercase font-semibold text-slate-400 mb-1">名前</label>
+                            <input type="text" value="${escapeHtml(item.name)}" oninput="updateField('${item.id}', 'name', this.value)" 
+                                class="w-full bg-slate-950/80 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition" placeholder="名前">
+                        </div>
+                        <div class="sm:col-span-4">
+                            <label class="block text-[10px] uppercase font-semibold text-slate-400 mb-1">住所（未入力は不明）</label>
+                            <input type="text" value="${escapeHtml(item.address || '')}" oninput="updateField('${item.id}', 'address', this.value)" 
+                                class="w-full bg-slate-950/80 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition" placeholder="東京都... (空で不明)">
+                        </div>
+                        <div class="sm:col-span-3">
+                            <label class="block text-[10px] uppercase font-semibold text-slate-400 mb-1">日付 (季節決定)</label>
+                            <input type="date" value="${item.date}" onchange="updateField('${item.id}', 'date', this.value)" 
+                                class="w-full bg-slate-950/80 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-indigo-500 transition">
+                        </div>
+                        <div class="sm:col-span-1">
+                            <label class="block text-[10px] uppercase font-semibold text-slate-400 mb-1">色</label>
+                            <input type="color" value="${item.bgColor}" onchange="updateField('${item.id}', 'bgColor', this.value); render();" 
+                                class="w-full h-[29px] bg-slate-950 border border-slate-700 rounded-lg cursor-pointer px-1 py-0.5">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Comment Text Area -->
+                <div>
+                    <textarea oninput="updateField('${item.id}', 'text', this.value)" 
+                        rows="2" class="w-full bg-slate-950/80 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 transition resize-y" 
+                        placeholder="コメント本文を入力してください...">${escapeHtml(item.text)}</textarea>
+                </div>
+
+                <!-- Footer Stats & Reply Action -->
+                <div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-800/80">
+                    <!-- High / Low Evaluations -->
+                    <div class="flex items-center gap-4">
+                        <div class="flex items-center gap-1.5 text-slate-400">
+                            <i data-lucide="thumbs-up" class="w-3.5 h-3.5 text-indigo-400"></i>
+                            <input type="number" min="0" value="${item.likes}" oninput="updateField('${item.id}', 'likes', this.value)" 
+                                class="w-14 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div class="flex items-center gap-1.5 text-slate-400">
+                            <i data-lucide="thumbs-down" class="w-3.5 h-3.5 text-rose-400"></i>
+                            <input type="number" min="0" value="${item.dislikes}" oninput="updateField('${item.id}', 'dislikes', this.value)" 
+                                class="w-14 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+                        </div>
+                    </div>
+
+                    <!-- Add Reply Button -->
+                    <button onclick="addReply('${item.id}')" class="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 rounded-lg transition">
+                        <i data-lucide="reply" class="w-3.5 h-3.5"></i>
+                        <span>返信を追加</span>
+                    </button>
+                </div>
+
+                <!-- Nested Replies Slot -->
+                <div class="replies-container space-y-3 pt-2"></div>
+            `;
+
+            // Append child replies
+            const repliesSlot = card.querySelector('.replies-container');
+            if (item.replies && item.replies.length > 0) {
+                item.replies.forEach(reply => {
+                    repliesSlot.appendChild(createCommentCard(reply, depth + 1));
+                });
+            }
+
+            return card;
+        }
+
+        // Helper: Format objects for JSON export to fallback address to "不明" if empty
+        function processCommentsForExport(list) {
+            return list.map(item => ({
+                id: item.id,
+                name: item.name || "匿名",
+                address: (item.address && item.address.trim() !== "") ? item.address : "不明",
+                avatarBase64: item.avatarBase64 || "",
+                bgColor: item.bgColor,
+                date: item.date,
+                text: item.text,
+                likes: item.likes,
+                dislikes: item.dislikes,
+                replies: processCommentsForExport(item.replies || [])
+            }));
+        }
+
+        // Render JSON text block & calculated bytes
+        function renderJSONOnly() {
+            const processedData = processCommentsForExport(comments);
+            const jsonText = JSON.stringify(processedData, null, 2);
+            document.getElementById('json-preview').textContent = jsonText;
+            
+            // Calculate size
+            const bytes = new Blob([jsonText]).size;
+            document.getElementById('json-size').textContent = `${bytes.toLocaleString()} bytes`;
+        }
+
+        // Copy JSON to Clipboard
+        function copyJSON() {
+            const processedData = processCommentsForExport(comments);
+            const jsonText = JSON.stringify(processedData, null, 2);
+            
+            // Fallback strategy for iframe environments
+            const textArea = document.createElement("textarea");
+            textArea.value = jsonText;
+            document.body.appendChild(textArea);
+            textArea.select();
+            
+            try {
+                document.execCommand('copy');
+                const btnText = document.getElementById('copy-btn-text');
+                btnText.textContent = "コピー完了!";
+                setTimeout(() => { btnText.textContent = "コピー"; }, 2000);
+                showToast("JSONをクリップボードにコピーしました");
+            } catch (err) {
+                showToast("コピーに失敗しました");
+            }
+            document.body.removeChild(textArea);
+        }
+
+        // Download JSON File
+        function downloadJSON() {
+            const processedData = processCommentsForExport(comments);
+            const jsonText = JSON.stringify(processedData, null, 2);
+            const blob = new Blob([jsonText], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `comments_${new Date().toISOString().slice(0,10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast("JSONファイルを保存しました");
+        }
+
+        // Show Toast Message
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-message').textContent = message;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // HTML Escape Helper
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // Initial Load
+        window.onload = function() {
+            render();
+        };
+    </script>
+</body>
+</html>
